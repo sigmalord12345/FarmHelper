@@ -4,6 +4,7 @@ import com.jelly.farmhelperv2.config.FarmHelperConfig;
 import com.jelly.farmhelperv2.failsafe.FailsafeManager;
 import com.jelly.farmhelperv2.feature.FeatureManager;
 import com.jelly.farmhelperv2.feature.IFeature;
+import com.jelly.farmhelperv2.feature.impl.PestDetection;
 import com.jelly.farmhelperv2.handler.GameStateHandler;
 import com.jelly.farmhelperv2.handler.MacroHandler;
 import com.jelly.farmhelperv2.handler.RotationHandler;
