@@ -22,7 +22,6 @@ import net.minecraftforge.client.event.ClientChatReceivedEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.ClientTickEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.Phase;
-import com.jelly.farmhelperv2.feature.impl.PestDetection; // Add the import here
 
 /* Credits to OsamaBeingLagging */
 public class PestFarmer implements IFeature {
@@ -36,6 +35,30 @@ public class PestFarmer implements IFeature {
 
         return instance;
     }
+    @SubscribeEvent
+    public void onChat(ClientChatReceivedEvent event) {
+        if (event.type != 0) return;
+
+        // Use PestDetection class to check if pests have spawned
+        if (PestDetection.onChatEvent(event)) { // Call the static method in PestDetection
+            pestSpawnTime = System.currentTimeMillis();
+            pestSpawned = true;
+            LogUtils.sendDebug("[PestFarmer] Pest Spawned.");
+        }
+    }
+
+    // Inner static PestDetection class
+    public static class PestDetection {
+
+        // This method checks if a pest spawn message is detected
+        public static boolean onChatEvent(ClientChatReceivedEvent event) {
+            String message = event.message.getUnformattedText();
+
+            // Match the pest spawn patterns (SkyHanni's detection logic)
+            return message.matches("§6§l.*! §7A §6Pest §7has appeared.*") || message.matches("§6§l.*! §6\\d Pests §7have spawned.*");
+        }
+    }
+    
 
     @Getter
     @Setter
@@ -48,8 +71,6 @@ public class PestFarmer implements IFeature {
     public ReturnState returnState = ReturnState.SUSPEND;
     private boolean pestSpawned = false;
     private Minecraft mc = Minecraft.getMinecraft();
-
-    private PestDetection pestDetection = new PestDetection(); // Add this line to initialize PestDetection
 
     @Override
     public String getName() {
@@ -148,7 +169,7 @@ public class PestFarmer implements IFeature {
         if (event.type != 0) return;
         String message = event.message.getUnformattedText();
 
-        if (pestDetection.onChat(message)) { // Use the PestDetection class here
+        if (message.startsWith("§6§lYUCK!") || message.startsWith("§6§lEWW!") || message.startsWith("§6§lGROSS!")) {
             pestSpawnTime = System.currentTimeMillis();
             pestSpawned = true;
             LogUtils.sendDebug("[PestFarmer] Pest Spawned.");
@@ -197,6 +218,91 @@ public class PestFarmer implements IFeature {
         }
     }
 
+    @SubscribeEvent
+    public void onTickReturn(ClientTickEvent event) {
+        if (returnState == ReturnState.SUSPEND) return;
+        if (event.phase != Phase.START) return;
+        switch (returnState) {
+            case FIND_ROD:
+                if (clock.passed()) {
+                    if (InventoryUtils.holdItem("Rod")) {
+                        clock.schedule(500);
+                        returnState = ReturnState.THROW_ROD;
+                    } else {
+                        LogUtils.sendError("[Pest Farmer] Unable to find rod. Disabling");
+                        FeatureManager.getInstance().disableAll();
+                        MacroHandler.getInstance().disableMacro();
+                    }
+                }
+                break;
+            case THROW_ROD:
+                if (clock.passed()) {
+                    KeyBindUtils.rightClick();
+                    clock.schedule(100);
+                    returnState = ReturnState.TP_TO_PLOT;
+                }
+                break;
+            case TP_TO_PLOT:
+                if (clock.passed()) {
+                    if (PlotUtils.getPlotNumberBasedOnLocation().number != lastPlot) {
+                        teleporting = true;
+                        mc.thePlayer.sendChatMessage("/tptoplot " + lastPlot);
+                    }
+
+                    clock.schedule(PlotUtils.getPlotNumberBasedOnLocation().number != lastPlot ? 500 : 100);
+                    returnState = ReturnState.FLY_TO_POSITION;
+                }
+                break;
+            case FLY_TO_POSITION:
+                if (clock.passed()) {
+                    teleporting = false;
+                    FlyPathFinderExecutor.getInstance().setUseAOTV(FarmHelperConfig.useAoteVInPestsDestroyer && InventoryUtils.hasItemInHotbar("Aspect of the"));
+                    FlyPathFinderExecutor.getInstance().findPath(lastPosition, false, true);
+                    clock.schedule(100);
+                    returnState = ReturnState.SNEAK;
+                }
+                break;
+            case SNEAK:
+                if (!FlyPathFinderExecutor.getInstance().isRunning()) {
+                    KeyBindUtils.setKeyBindState(mc.gameSettings.keyBindSneak, true);
+                    clock.schedule(100);
+                    returnState = ReturnState.ROTATE;
+                }
+
+                break;
+            case ROTATE:
+                if (clock.passed() && mc.thePlayer.onGround) {
+                    KeyBindUtils.stopMovement(true);
+                    KeyBindUtils.setKeyBindState(mc.gameSettings.keyBindSneak, false);
+                    Rotation newRotation = new Rotation(lastYaw, lastPitch);
+                    Rotation curretnRotation = new Rotation(mc.thePlayer.rotationYaw, mc.thePlayer.rotationPitch);
+                    Rotation neededChange = RotationHandler.getInstance().getNeededChange(newRotation, curretnRotation);
+                    RotationHandler.getInstance().easeTo(new RotationConfiguration(
+                            newRotation,
+                            FarmHelperConfig.getRandomRotationTime() * ((Math.abs(neededChange.getYaw()) > 90) ? 2 : 1),
+                            null
+                    ).easeOutBack(true));
+                    returnState = ReturnState.HOLD_ITEM;
+                }
+                break;
+            case HOLD_ITEM:
+                if (!RotationHandler.getInstance().isRotating()) {
+                    PlayerUtils.getTool();
+                    clock.schedule(100);
+                    returnState = ReturnState.FINISH;
+                }
+
+                break;
+            case FINISH:
+                if (clock.passed()) {
+                    MacroHandler.getInstance().getCurrentMacro().get().setCurrentState(direction);
+                    MacroHandler.getInstance().resumeMacro();
+                    returnState = ReturnState.SUSPEND;
+                }
+                break;
+        }
+    }
+
     @Getter
     private boolean teleporting = false;
     public int lastPlot = -1;
@@ -220,6 +326,7 @@ public class PestFarmer implements IFeature {
         lastPitch = mc.thePlayer.rotationPitch;
     }
 
+    // bleh, its only for the tracker basically
     enum State {
         SWAPPING,
         FIND_ROD,
