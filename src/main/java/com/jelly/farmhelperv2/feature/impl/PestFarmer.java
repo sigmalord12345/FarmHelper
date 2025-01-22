@@ -35,30 +35,6 @@ public class PestFarmer implements IFeature {
 
         return instance;
     }
-    @SubscribeEvent
-    public void onChat(ClientChatReceivedEvent event) {
-        if (event.type != 0) return;
-
-        // Use PestDetection class to check if pests have spawned
-        if (PestDetection.onChatEvent(event)) { // Call the static method in PestDetection
-            pestSpawnTime = System.currentTimeMillis();
-            pestSpawned = true;
-            LogUtils.sendDebug("[PestFarmer] Pest Spawned.");
-        }
-    }
-
-    // Inner static PestDetection class
-    public static class PestDetection {
-
-        // This method checks if a pest spawn message is detected
-        public static boolean onChatEvent(ClientChatReceivedEvent event) {
-            String message = event.message.getUnformattedText();
-
-            // Match the pest spawn patterns (SkyHanni's detection logic)
-            return message.matches("§6§l.*! §7A §6Pest §7has appeared.*") || message.matches("§6§l.*! §6\\d Pests §7have spawned.*");
-        }
-    }
-    
 
     @Getter
     @Setter
@@ -163,18 +139,29 @@ public class PestFarmer implements IFeature {
             start();
         }
     }
+@SubscribeEvent
+public void onChat(ClientChatReceivedEvent event) {
+    if (event.type != 0) return;
 
-    @SubscribeEvent
-    public void onChat(ClientChatReceivedEvent event) {
-        if (event.type != 0) return;
+    // Use PestDetection class to check if pests have spawned
+    if (PestDetection.onChatEvent(event)) { // Call the static method in PestDetection
+        pestSpawnTime = System.currentTimeMillis();
+        pestSpawned = true;
+        LogUtils.sendDebug("[PestFarmer] Pest Spawned.");
+    }
+}
+
+// Inner static PestDetection class
+public static class PestDetection {
+
+    // This method checks if a pest spawn message is detected
+    public static boolean onChatEvent(ClientChatReceivedEvent event) {
         String message = event.message.getUnformattedText();
 
-        if (message.startsWith("§6§lYUCK!") || message.startsWith("§6§lEWW!") || message.startsWith("§6§lGROSS!")) {
-            pestSpawnTime = System.currentTimeMillis();
-            pestSpawned = true;
-            LogUtils.sendDebug("[PestFarmer] Pest Spawned.");
-        }
+        // Match the pest spawn patterns (SkyHanni's detection logic)
+        return message.matches("§6§l.*! §7A §6Pest §7has appeared.*") || message.matches("§6§l.*! §6\\d Pests §7have spawned.*");
     }
+}
 
     @SubscribeEvent
     public void onTickSwap(ClientTickEvent event) {
