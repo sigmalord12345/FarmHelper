@@ -162,6 +162,23 @@ public static class PestDetection {
         return message.matches("§6§l.*! §7A §6Pest §7has appeared.*") || message.matches("§6§l.*! §6\\d Pests §7have spawned.*");
     }
 }
+@SubscribeEvent
+public void onTabListUpdate(ClientChatReceivedEvent event) {
+    if (event.type != 0) return;
+    String message = event.message.getFormattedText();  // Get the formatted message
+
+    // Check if the message contains "ready" (case insensitive)
+    if (message.toLowerCase().contains("ready")) {
+        // Additional check for bold and green (you can adjust the color code as needed)
+        if (message.contains("§a") && message.contains("§l")) { // §a is green, §l is bold
+            if (AutoWardrobe.activeSlot != FarmHelperConfig.pestFarmingSet1Slot) {
+                swapTo = FarmHelperConfig.pestFarmingSet1Slot;
+                LogUtils.sendDebug("[PestFarmer] Swapping to Pest Farming Armor.");
+                start();
+            }
+        }
+    }
+}
 
     @SubscribeEvent
     public void onTickSwap(ClientTickEvent event) {
