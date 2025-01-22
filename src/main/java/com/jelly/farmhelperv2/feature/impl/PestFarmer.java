@@ -169,8 +169,7 @@ public void onTabListUpdate(ClientChatReceivedEvent event) {
 
     // Check if the message contains "ready" (case insensitive)
     if (message.toLowerCase().contains("ready")) {
-        // Additional check for bold and green (you can adjust the color code as needed)
-        if (message.contains("§a") && message.contains("§l")) { // §a is green, §l is bold
+
             if (AutoWardrobe.activeSlot != FarmHelperConfig.pestFarmingSet1Slot) {
                 swapTo = FarmHelperConfig.pestFarmingSet1Slot;
                 LogUtils.sendDebug("[PestFarmer] Swapping to Pest Farming Armor.");
@@ -178,7 +177,6 @@ public void onTabListUpdate(ClientChatReceivedEvent event) {
             }
         }
     }
-}
 
     @SubscribeEvent
     public void onTickSwap(ClientTickEvent event) {
